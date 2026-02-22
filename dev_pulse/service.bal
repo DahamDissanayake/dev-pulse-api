@@ -19,25 +19,21 @@ service /api on new http:Listener(8080) {
         // Fetch real-time data from GitHub
         github:UserResponse user = check github->/users/[username];
         
-        // Safely extract metrics with explicit type checks
-        anydata publicReposVal = user["public_repos"];
-        int repos = publicReposVal is int ? publicReposVal : 0;
-        
-        anydata followersVal = user["followers"];
-        int followers = followersVal is int ? followersVal : 0;
+        // Removed `?:` because the connector guarantees these are always integers
+        int repos = user.public_repos;
+        int followers = user.followers;
         
         int pulseScore = (repos * 5) + (followers * 2);
 
-        // Safely extract profile info
-        anydata loginVal = user["login"];
-        anydata nameVal = user["name"];
-        anydata bioVal = user["bio"];
-
         // Construct the clean JSON payload
         json response = {
-            "developer": loginVal is string ? loginVal : "Unknown",
-            "profileName": nameVal is string ? nameVal : "Anonymous Developer",
-            "bio": bioVal is string ? bioVal : "No bio available",
+            // Removed `?:` because login is guaranteed to be a string
+            "developer": user.login, 
+            
+            // Kept `?:` because users can leave their name/bio blank on GitHub
+            "profileName": user.name ?: "Anonymous Developer",
+            "bio": user.bio ?: "No bio available",
+            
             "metrics": {
                 "publicRepos": repos,
                 "followers": followers,
