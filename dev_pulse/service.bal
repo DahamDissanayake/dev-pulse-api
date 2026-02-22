@@ -17,18 +17,27 @@ service /api on new http:Listener(8080) {
     resource function get pulse/[string username]() returns json|error {
         
         // Fetch real-time data from GitHub
-        github:User user = check github->getUser(username);
+        github:UserResponse user = check github->/users/[username];
         
-        // Calculate the Developer Pulse Score
-        int repos = user.public_repos ?: 0;
-        int followers = user.followers ?: 0;
+        // Safely extract metrics with explicit type checks
+        anydata publicReposVal = user["public_repos"];
+        int repos = publicReposVal is int ? publicReposVal : 0;
+        
+        anydata followersVal = user["followers"];
+        int followers = followersVal is int ? followersVal : 0;
+        
         int pulseScore = (repos * 5) + (followers * 2);
+
+        // Safely extract profile info
+        anydata loginVal = user["login"];
+        anydata nameVal = user["name"];
+        anydata bioVal = user["bio"];
 
         // Construct the clean JSON payload
         json response = {
-            "developer": user.login,
-            "profileName": user.name ?: "Anonymous Developer",
-            "bio": user.bio ?: "No bio available",
+            "developer": loginVal is string ? loginVal : "Unknown",
+            "profileName": nameVal is string ? nameVal : "Anonymous Developer",
+            "bio": bioVal is string ? bioVal : "No bio available",
             "metrics": {
                 "publicRepos": repos,
                 "followers": followers,
